@@ -16,11 +16,16 @@ import streamlit as st
 # devloper defined modules
 from embedding import embedding
 from pdf_utils import pdf_utils
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 class chromadb_utils:
     def __init__(self):
         # Create client 
-        self.__db = chromadb.PersistentClient("./resume_rag")
+        chroma_db_path = os.getenv("CHROMA_DB_PATH", "./resume_rag")
+        self.__db = chromadb.PersistentClient(chroma_db_path)
 
         #Create collection
         self.__collection = self.__db.get_or_create_collection("resumes")
