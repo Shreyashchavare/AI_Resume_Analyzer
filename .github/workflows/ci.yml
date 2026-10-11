@@ -14,7 +14,7 @@ jobs:
   validate:
     name: Validate Python application
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
@@ -38,3 +38,6 @@ jobs:
 
       - name: Validate Python syntax
         run: python -m compileall -q chromadb_utils.py embedding.py llm.py pdf_utils.py user_service.py
+
+      - name: Validate Docker image build
+        run: docker build --tag ai-resume-analyzer:ci .
