@@ -10,17 +10,20 @@ Created: 2025-12-26
 
 
 # import all neccessary modules
-import os
-
 from langchain.chat_models import init_chat_model
 from chromadb_utils import chromadb_utils
 import streamlit as st
+import os
 from dotenv import load_dotenv
-load_dotenv()
+
+load_dotenv(
+    dotenv_path=os.path.join(os.path.dirname(__file__), ".env"),
+    override=True
+)
 class llm:
     def __init__(self):
         self.__llm = init_chat_model(
-            model="llama-3.3-70b-versatile",  # Or your preferred Groq model
+            model="openai/gpt-oss-120b",  # Or your preferred Groq model
             model_provider="groq",
             api_key=os.getenv("GROQ_API_KEY")  # Replace with your actual Groq API key
         )

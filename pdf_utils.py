@@ -20,7 +20,7 @@ Created: 2025-12-26
 
 import os
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
-
+from typing import cast
 
 class pdf_utils:
 
@@ -29,28 +29,46 @@ class pdf_utils:
     # ==============================
     def dir_pdfs_reading(self, dir_path):
         try:
+            if not dir_path or not os.path.isdir(dir_path):
+                raise ValueError("Invalid directory path")
+
             loader = DirectoryLoader(
                 path=dir_path,
                 glob="**/*.pdf",
-                loader_cls=PyPDFLoader
+                loader_cls=cast(type, PyPDFLoader)
             )
-            return loader.load()   # list[Document]
+
+            documents = loader.load()
+
+            if not documents:
+                print("No readable PDF documents found in directory")
+                return None
+
+            return documents
+
         except Exception as e:
             print(f"Error while parsing directory: {e}")
             return None
 
-    # ==============================
+        # ==============================
     # Read a single PDF using path
     # ==============================
     def pdf_reading(self, pdf_path):
         try:
-            if not os.path.exists(pdf_path):
-                raise FileNotFoundError(f"PDF not found: {pdf_path}")
+            if not pdf_path or not os.path.isfile(pdf_path):
+                raise FileNotFoundError(
+                    f"PDF not found: {pdf_path}"
+                )
 
             loader = PyPDFLoader(pdf_path)
-            return loader.load()   # list[Document]
-        except Exception as e:
-            print(f"Error while parsing pdf: {e}")
-            return None
+            documents = loader.load()
 
-    
+            if not documents:
+                print("No readable content found in PDF")
+                return None
+
+            return documents
+
+        except Exception as e:
+            print(f"Error while parsing PDF: {e}")
+            return None

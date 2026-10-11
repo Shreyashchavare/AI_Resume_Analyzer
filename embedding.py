@@ -28,16 +28,21 @@ class embedding:
         """
         Docstring for embedding_of_resume
         embedding_of_resumes function is used create vector embedding for give directory path of pdfs
-        :param dir_path: directory path of pdfs where all pdf are present 
-        :return: 
-                embeddings: vector of pdf 
-                metadatas: metadata of pdf
-                ids: ids for vectors of pdf
+        :param dir_path: directory path of pdfs where all pdf are present
+        :return:
+            embeddings: vector of pdf
+            metadatas: metadata of pdf
+            ids: ids for vectors of pdf
         """
 
         try:
             pdf = pdf_utils()
             documents = pdf.dir_pdfs_reading(dir_path)
+
+            if not documents:
+                print("Error: No documents found in directory")
+                return None
+
         except Exception as e:
             print(f"Error while reading directory: {e}")
             return None
@@ -49,11 +54,15 @@ class embedding:
 
         # Collect text per PDF
         for doc in documents:
-            pdf_path = doc.metadata["source"]              # ✅ full path
+            pdf_path = doc.metadata.get("source")
+
+            if not pdf_path:
+                continue
+
             pdf_name = os.path.basename(pdf_path)
 
             pdf_texts[pdf_name] += doc.page_content + "\n\n"
-            pdf_paths[pdf_name] = pdf_path                 # map name → path
+            pdf_paths[pdf_name] = pdf_path
 
         texts = []
 
@@ -66,12 +75,16 @@ class embedding:
 
             metadatas.append({
                 "pdf_name": pdf_name,
-                "pdf_path": pdf_paths[pdf_name],   # ✅ added
+                "pdf_path": pdf_paths[pdf_name],
                 "person_name": person_name,
                 "upload_date": str(date.today())
             })
 
             ids.append(f"{pdf_name}/{person_name}/{date.today()}")
+
+        if not texts:
+            print("Error: No readable PDF content found in directory")
+            return None
 
         embeddings = self.__embed_model.encode(texts)
 
@@ -88,20 +101,25 @@ class embedding:
         return self.__embed_model.encode(query)
     
     # ============================= embedding_of_resume ==================================
+    # ============================= embedding_of_resume ==============================
     def embedding_of_resume(self, pdf_path):
         """
         Docstring for embedding_of_resume
-        
-        :param self: self is passed for class parameters
-        :param pdf_path: pdf path of the resume
+
+        :param pdf_path: PDF path of the resume
         :return:
             embedding: embedding of the resume
-            metadata: metadata of the resume 
-            id: id for the resume
+            metadata: metadata of the resume
+            id: ID for the resume
         """
         try:
             pdf = pdf_utils()
             documents = pdf.pdf_reading(pdf_path)
+
+            if not documents:
+                print("Error: No documents found in PDF")
+                return None
+
         except Exception as e:
             print(f"Error while reading PDF: {e}")
             return None
@@ -111,8 +129,8 @@ class embedding:
         for doc in documents:
             pdf_text += doc.page_content + "\n\n"
 
-        # Extract metadata from first page (same for all pages)
-        source_path = documents[0].metadata["source"]
+        # Extract metadata from first page
+        source_path = documents[0].metadata.get("source", pdf_path)
         pdf_name = os.path.basename(source_path)
 
         base_name = os.path.splitext(pdf_name)[0]
@@ -121,7 +139,7 @@ class embedding:
 
         metadata = {
             "pdf_name": pdf_name,
-            "pdf_path": source_path,          # ✅ added
+            "pdf_path": source_path,
             "person_name": person_name,
             "upload_date": str(date.today())
         }

@@ -63,3 +63,18 @@ htmlcov/
 # ================================
 .DS_Store
 Thumbs.db
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Local user data
+user.csv
+history.csv
+
+# Local databases and uploaded resumes
+resume_rag/
+data/chroma/
+*.pdf

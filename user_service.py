@@ -7,13 +7,14 @@ Description:
 Author: Shreyash Chavare
 Created: 2025-12-26
 """
-
+import hmac
 import streamlit as st
 import os
 import pandas as pd
 from datetime import datetime
 from llm import llm
 from chromadb_utils import chromadb_utils
+
 # ========================== CONFIG =================================
 st.set_page_config(page_title="AI Resume Analyzer for HR", page_icon="📓", layout="wide")
 USER_FILE = "user.csv"
@@ -46,37 +47,63 @@ else:
     menu = st.sidebar.radio("Navigation",["Chat", "Resume Management", "Logout"])
 
 # ============================ HELPER FUNCTION =========================
+# def authenticate_user(username, password):
+#     username = username.strip()
+#     password = password.strip()
+
+#     if not os.path.exists(USER_FILE) or os.stat(USER_FILE).st_size == 0:
+#         return False
+
+#     users = pd.read_csv(USER_FILE, dtype=str)
+
+#     return not users[
+#         (users["username"].str.strip().str.lower() == username.lower()) &
+#         (users["password"].str.strip() == password)
+#     ].empty
+
 def authenticate_user(username, password):
-    username = username.strip()
-    password = password.strip()
-
-    if not os.path.exists(USER_FILE) or os.stat(USER_FILE).st_size == 0:
+    try:
+        expected_username = (
+            os.getenv("ADMIN_USERNAME")
+            or st.secrets.get("ADMIN_USERNAME", "")
+                )
+        expected_password = (
+                os.getenv("ADMIN_PASSWORD")
+                or st.secrets.get("ADMIN_PASSWORD", "")
+            )
+    except Exception:
+        st.error("Admin login is not configured correctly.")
         return False
 
-    users = pd.read_csv(USER_FILE, dtype=str)
-
-    return not users[
-        (users["username"].str.strip().str.lower() == username.lower()) &
-        (users["password"].str.strip() == password)
-    ].empty
-
-
-
-def register_user(username, password):
     username = username.strip()
-    password = password.strip()
 
-    if not os.path.exists(USER_FILE) or os.stat(USER_FILE).st_size == 0:
-        users = pd.DataFrame(columns=["username", "password"])
-    else:
-        users = pd.read_csv(USER_FILE, dtype=str)
+    username_matches = hmac.compare_digest(
+        username.casefold(),
+        expected_username.strip().casefold()
+    )
 
-    if not users.empty and username.lower() in users["username"].str.lower().values:
-        return False
+    password_matches = hmac.compare_digest(
+        password,
+        expected_password
+    )
 
-    users.loc[len(users)] = [username, password]
-    users.to_csv(USER_FILE, index=False)
-    return True
+    return username_matches and password_matches
+
+# def register_user(username, password):
+#     username = username.strip()
+#     password = password.strip()
+
+#     if not os.path.exists(USER_FILE) or os.stat(USER_FILE).st_size == 0:
+#         users = pd.DataFrame(columns=["username", "password"])
+#     else:
+#         users = pd.read_csv(USER_FILE, dtype=str)
+
+#     if not users.empty and username.lower() in users["username"].str.lower().values:
+#         return False
+
+#     users.loc[len(users)] = [username, password]
+#     users.to_csv(USER_FILE, index=False)
+#     return True
 
 
 
@@ -105,9 +132,10 @@ elif menu == "Login":
 
     if submit_btn_l:
         if authenticate_user(username, password):
-            st.session_state.authenticated = True
-            st.session_state.username = username.strip()  # display-safe
-            st.success("Login successful")
+            if authenticate_user(username, password):
+                st.session_state.authenticated = True
+                st.session_state.username = username.strip()
+                st.success("Login successful!")
             save_login_history(st.session_state.username)
             st.rerun()
         else:
@@ -116,40 +144,48 @@ elif menu == "Login":
 #================================= REGISTER ===================================
 elif menu == "Register":
     st.title("📝 Register")
-    #Registration Form
-    with st.form(key="reg_form"):
-        st.header("Registration Form")
-        username = st.text_input(key="reg_id", label="User Name")
-        password = st.text_input(key="reg_pass", label="Password", type="password")
 
-        submit_btn_r = st.form_submit_button("Submit", type="primary")
-
-    # from submit handling
-    if submit_btn_r:
-        if register_user(username, password):
-            st.success("Registration successful. Please login.")
-        else:
-            st.error("User already exists")
-
+    st.warning(
+        "🔒 Registration Currently Restricted\n\n"
+        "This AI Resume Analyzer is currently under "
+        "Shreyash's supervision. Access is restricted "
+        "due to limited AI token availability.\n\n"
+        "Public registration is disabled. "
+        "Please contact Shreyash to request access."
+    )
 #================================= REGISTER ===================================
 elif menu == "Chat":
     if st.session_state.authenticated:
+
+        # Initialize LLM only when needed
+        if "llm_instance" not in st.session_state:
+            st.session_state.llm_instance = llm()
+
         st.header("💬 Chat With Resume Analyzer")
-        
+
         # Show existing resumes
         st.subheader("📄 Available Resumes")
-        st.table(st.session_state.db_instance.list_resume_in_db())
+        st.table(
+            st.session_state.db_instance.list_resume_in_db()
+        )
+
         st.divider()
 
-        user_input = st.chat_input("Enter your description for search")
+        # User input
+        user_input = st.chat_input(
+            "Enter your description for search"
+        )
 
         if user_input:
-            response = st.session_state.llm_instance.user_llm_prompts_interaction(
+            st.session_state.llm_instance.user_llm_prompts_interaction(
                 user_input
             )
 
-        # Display chat in Streamlit
+        # Display chat history
         st.session_state.llm_instance.display_chat()
+
+    else:
+        st.warning("Please log in to access the Chat.")
 
 #================================= REGISTER ===================================
 elif menu == "Resume Management":
@@ -210,7 +246,7 @@ elif menu == "Resume Management":
         if delete_clicked:
             if not pdf_path:
                 st.warning("⚠️ Please provide a PDF path")
-            elif st.session_state.db_instance.delete_resume_from_db(pdf_path):
+            elif st.session_state.db_instance.delete_resume_in_db(pdf_path):
                 st.success("🗑️ PDF deleted successfully")
             else:
                 st.error("❌ Failed to delete PDF")
